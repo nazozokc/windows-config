@@ -1,0 +1,287 @@
+-- Purpose: keyboard-only window/pane/tab control. No tmux-style prefix, no Ctrl-alone binds.
+-- All keybindings have description for command palette discoverability.
+-- Windows-only: no SUPER (Cmd) bindings.
+
+local wezterm = require("wezterm")
+local act = wezterm.action
+
+local M = {}
+
+--- Opacity levels cycled by Ctrl+Shift+F:
+---   1. opaque (1.0)
+---   2. default (0.90)
+---   3. transparent (default - 0.15, floor 0.60)
+local OPACITY_LEVELS
+
+local function init_opacity_levels()
+	OPACITY_LEVELS = {
+		opaque = 1.0,
+		default = 0.90,
+		transparent = math.max(0.90 - 0.15, 0.60),
+	}
+end
+
+function M.apply(config)
+	-- Defaults include Ctrl-only bindings (zoom, etc). We disable them to enforce the rule strictly.
+	config.disable_default_key_bindings = true
+
+	config.keys = {
+		-- ========================
+		-- Tabs
+		-- ========================
+		{
+			key = "t",
+			mods = "CTRL|SHIFT",
+			action = act.SpawnTab("CurrentPaneDomain"),
+			description = "Open new tab",
+		},
+		{
+			key = "w",
+			mods = "CTRL|SHIFT",
+			action = act.CloseCurrentTab({ confirm = true }),
+			description = "Close current tab",
+		},
+		-- Bracket-based nav: Vim-mnemonic ([ = prev, ] = next).
+		-- Neither Ctrl+Shift+[ nor Ctrl+Shift+] conflicts with nvim.
+		-- Keep PageUp/Down as fallback for non-US layouts where [ ] may be awkward.
+		{
+			key = "[",
+			mods = "CTRL|SHIFT",
+			action = act.ActivateTabRelative(-1),
+			description = "Activate previous tab",
+		},
+		{
+			key = "]",
+			mods = "CTRL|SHIFT",
+			action = act.ActivateTabRelative(1),
+			description = "Activate next tab",
+		},
+		{
+			key = "PageUp",
+			mods = "CTRL|SHIFT",
+			action = act.ActivateTabRelative(-1),
+			description = "Activate previous tab",
+		},
+		{
+			key = "PageDown",
+			mods = "CTRL|SHIFT",
+			action = act.ActivateTabRelative(1),
+			description = "Activate next tab",
+		},
+
+		-- ========================
+		-- Panes: split
+		-- ========================
+		{
+			key = "e",
+			mods = "CTRL|SHIFT",
+			action = act.SplitHorizontal({ domain = "CurrentPaneDomain" }),
+			description = "Split pane horizontally",
+		},
+		{
+			key = "d",
+			mods = "CTRL|SHIFT",
+			action = act.SplitVertical({ domain = "CurrentPaneDomain" }),
+			description = "Split pane vertically",
+		},
+		{
+			key = "q",
+			mods = "CTRL|SHIFT",
+			action = act.CloseCurrentPane({ confirm = true }),
+			description = "Close current pane",
+		},
+		{
+			key = "z",
+			mods = "CTRL|SHIFT",
+			action = act.TogglePaneZoomState,
+			description = "Toggle pane zoom state",
+		},
+
+		-- ========================
+		-- Panes: resize (native, tmux 外で使用) — Ctrl+Shift+Alt+HJKL
+		-- Ctrl+Shift+HJKL は tmux に透過 (tmux のペインリサイズで使用)
+		-- ========================
+		{
+			key = "h",
+			mods = "CTRL|SHIFT|ALT",
+			action = act.AdjustPaneSize({ "Left", 3 }),
+			description = "Resize pane left",
+		},
+		{
+			key = "j",
+			mods = "CTRL|SHIFT|ALT",
+			action = act.AdjustPaneSize({ "Down", 2 }),
+			description = "Resize pane down",
+		},
+		{
+			key = "k",
+			mods = "CTRL|SHIFT|ALT",
+			action = act.AdjustPaneSize({ "Up", 2 }),
+			description = "Resize pane up",
+		},
+		{
+			key = "l",
+			mods = "CTRL|SHIFT|ALT",
+			action = act.AdjustPaneSize({ "Right", 3 }),
+			description = "Resize pane right",
+		},
+
+		-- ========================
+		-- Window
+		-- ========================
+		{
+			key = "Enter",
+			mods = "CTRL|SHIFT",
+			action = act.ToggleFullScreen,
+			description = "Toggle fullscreen (Ctrl+Shift)",
+		},
+		{
+			key = "Enter",
+			mods = "ALT",
+			action = act.ToggleFullScreen,
+			description = "Toggle fullscreen (Alt)",
+		},
+		{
+			key = "n",
+			mods = "CTRL|SHIFT",
+			action = act.SpawnWindow,
+			description = "Open new window",
+		},
+
+		-- ========================
+		-- Clipboard
+		-- ========================
+		{
+			key = "c",
+			mods = "CTRL|SHIFT",
+			action = act.CopyTo("Clipboard"),
+			description = "Copy selection to clipboard",
+		},
+		{
+			key = "v",
+			mods = "CTRL|SHIFT",
+			action = act.PasteFrom("Clipboard"),
+			description = "Paste from clipboard",
+		},
+
+		-- ========================
+		-- Copy Mode
+		-- ========================
+		{
+			key = "x",
+			mods = "CTRL|SHIFT",
+			action = act.ActivateCopyMode,
+			description = "Activate copy mode",
+		},
+
+		-- ========================
+		-- Config management
+		-- ========================
+		{
+			key = "r",
+			mods = "CTRL|SHIFT",
+			action = act.ReloadConfiguration,
+			description = "Reload configuration",
+		},
+		-- Command palette: discover all actions with descriptions.
+		{
+			key = "p",
+			mods = "CTRL|SHIFT",
+			action = act.ActivateCommandPalette,
+			description = "Open command palette",
+		},
+
+		-- ========================
+		-- Ctrl + Shift + F : Opacity cycle (opaque → default → transparent → ...)
+		-- ========================
+		{
+			key = "F",
+			mods = "CTRL|SHIFT",
+			action = wezterm.action_callback(function(window, _)
+				if not OPACITY_LEVELS then
+					init_opacity_levels()
+				end
+
+				local overrides = window:get_config_overrides() or {}
+				local current = overrides.window_background_opacity or OPACITY_LEVELS.default
+
+				-- Cycle forward through the three levels
+				local next_val
+				if current == OPACITY_LEVELS.opaque then
+					next_val = OPACITY_LEVELS.default
+				elseif current == OPACITY_LEVELS.default then
+					next_val = OPACITY_LEVELS.transparent
+				else
+					next_val = OPACITY_LEVELS.opaque
+				end
+
+				overrides.window_background_opacity = next_val
+				window:set_config_overrides(overrides)
+			end),
+			description = "Cycle window opacity: opaque → default → transparent",
+		},
+
+		-- Suppress F13/F14 raw escape sequences reaching nvim
+		{ key = "F13", mods = "NONE", action = act.SendString("") },
+		{ key = "F14", mods = "NONE", action = act.SendString("") },
+	}
+
+	-- ========================
+	-- Copy Mode key tables (vi-like)
+	-- ========================
+	config.key_tables = {
+		copy_mode = {
+			-- Close copy mode
+			{ key = "q", mods = "NONE", action = act.CopyMode("Close") },
+
+			-- Movement (vi-like)
+			{ key = "h", mods = "NONE", action = act.CopyMode("MoveLeft") },
+			{ key = "j", mods = "NONE", action = act.CopyMode("MoveDown") },
+			{ key = "k", mods = "NONE", action = act.CopyMode("MoveUp") },
+			{ key = "l", mods = "NONE", action = act.CopyMode("MoveRight") },
+
+			-- Word movement
+			{ key = "w", mods = "NONE", action = act.CopyMode("MoveForwardWord") },
+			{ key = "b", mods = "NONE", action = act.CopyMode("MoveBackwardWord") },
+			{ key = "e", mods = "NONE", action = act.CopyMode("MoveForwardWordEnd") },
+
+			-- Line movement
+			{ key = "0", mods = "NONE", action = act.CopyMode("MoveToStartOfLine") },
+			{ key = "$", mods = "NONE", action = act.CopyMode("MoveToEndOfLineContent") },
+			{ key = "^", mods = "NONE", action = act.CopyMode("MoveToStartOfLineContent") },
+
+			-- Page movement
+			{ key = "f", mods = "CTRL", action = act.CopyMode("PageDown") },
+			{ key = "b", mods = "CTRL", action = act.CopyMode("PageUp") },
+
+			-- Search
+			{ key = "/", mods = "NONE", action = act.Search({ CaseSensitiveString = "" }) },
+			{ key = "?", mods = "NONE", action = act.Search({ CaseSensitiveString = "" }) },
+			{ key = "n", mods = "NONE", action = act.CopyMode("NextMatch") },
+			{ key = "N", mods = "NONE", action = act.CopyMode("PriorMatch") },
+
+			-- Selection
+			{ key = "v", mods = "NONE", action = act.CopyMode({ SetSelectionMode = "Cell" }) },
+			{ key = "V", mods = "NONE", action = act.CopyMode({ SetSelectionMode = "Line" }) },
+			{ key = "v", mods = "CTRL", action = act.CopyMode({ SetSelectionMode = "Block" }) },
+
+			-- Copy and close
+			{
+				key = "y",
+				mods = "NONE",
+				action = act.Multiple({
+					act.CopyTo("Clipboard"),
+					act.CopyMode("Close"),
+				}),
+			},
+
+			-- Clear selection
+			{ key = "Escape", mods = "NONE", action = act.CopyMode("ClearSelectionMode") },
+
+			-- Start selection
+			{ key = "Space", mods = "NONE", action = act.CopyMode({ SetSelectionMode = "Cell" }) },
+		},
+	}
+end
+
+return M

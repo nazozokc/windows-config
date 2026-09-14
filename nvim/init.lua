@@ -1,0 +1,88 @@
+-- =========================================================
+-- Basic UI options
+-- =========================================================
+vim.opt.number = true
+vim.opt.relativenumber = true
+vim.opt.cursorline = true
+vim.opt.cursorcolumn = true
+vim.api.nvim_set_hl(0, "CursorLine", {
+	bg = "#404040",
+})
+
+vim.api.nvim_set_hl(0, "CursorColumn", {
+	bg = "#4a4a4a",
+})
+
+-- Insert モード中は relative number を無効化
+vim.api.nvim_create_autocmd("InsertEnter", {
+	callback = function()
+		vim.opt.relativenumber = false
+	end,
+})
+
+vim.api.nvim_create_autocmd("InsertLeave", {
+	callback = function()
+		vim.opt.relativenumber = true
+	end,
+})
+
+-- =========================================================
+-- Load configs
+-- =========================================================
+require("vim-options")
+require("lazy").setup("plugins", {
+	lockfile = vim.fn.stdpath("config") .. "/lazy-lock.json",
+	rocks = {
+		enabled = false,
+	},
+	git = {
+		timeout = 600,
+	},
+})
+
+-- =========================================================
+-- Keymaps
+-- =========================================================
+local map = vim.keymap.set
+
+-- ---------------------------------------------------------
+-- UI / Toggle
+-- ---------------------------------------------------------
+map("n", "<leader>t", ":ToggleTerm<CR>", {})
+map("n", "<leader>c", ":Oil ~/ghq/github.com/nazozokc/windows-config/<CR>", {})
+map("n", "<leader>so", ":SymbolsOutline<CR>")
+map("n", "<F2>", ":Twilight<CR>", {})
+map("n", "<leader>e", ":TroubleToggle<CR>")
+
+-- ---------------------------------------------------------
+-- LSP (Lspsaga / Actions)
+-- ---------------------------------------------------------
+map("n", "ga", "<cmd>Lspsaga code_action<CR>")
+map("n", "gd", "<cmd>Lspsaga goto_definition<CR>")
+
+map("n", "<leader>ca", function()
+	require("actions-preview").code_actions()
+end, { desc = "Code Action (preview)" })
+
+-- ---------------------------------------------------------
+-- Snacks.nvim (Picker / Zen)
+-- ---------------------------------------------------------
+map("n", "<leader><leader>", function()
+	require("snacks.picker").files()
+end, { desc = "Files" })
+
+map("n", "<leader>g", function()
+	require("snacks.picker").grep()
+end, { desc = "Live Grep" })
+
+map("n", "<leader>b", function()
+	require("snacks.picker").buffers()
+end, { desc = "Buffers" })
+
+map("n", "<leader>r", function()
+	require("snacks.picker").recent()
+end, { desc = "Recent Files" })
+
+map("n", "<leader>z", function()
+	require("snacks").zen.toggle()
+end, { desc = "Zen Mode" })
