@@ -1,4 +1,4 @@
-# Purpose: Create symbolic links from this repo to the standard config locations on Windows.
+﻿# Purpose: Create symbolic links from this repo to the standard config locations on Windows.
 # Usage:  powershell -ExecutionPolicy Bypass -File link.ps1
 # Note:   Requires Developer Mode enabled or Administrator privileges.
 #         既存の実体ファイル/ディレクトリは `リンク先.bak-<タイムスタンプ>` に退避してから置き換える。
