@@ -3,7 +3,7 @@
 local M = {}
 
 function M.apply(config)
-	config.max_fps = 120
+	config.max_fps = 30
 	config.animation_fps = 1
 
 	-- OpenGL avoids the slow software-rendering path on Windows.
