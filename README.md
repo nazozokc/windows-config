@@ -31,4 +31,5 @@ komorebi / whkd / neovim / fzf / ripgrep / fd / bat / eza / zoxide
 ### 注意
 
 - `link.ps1` の symlink 作成には **開発者モード** または **管理者権限** が必要
+- 既存の実体ファイル/ディレクトリは `リンク先.bak-<日時>` に退避してから置き換える（上書き削除しない）
 - 自動起動: komorebi / whkd はスタートアップに登録するか、`komorebic start` を使用

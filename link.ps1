@@ -1,6 +1,7 @@
 # Purpose: Create symbolic links from this repo to the standard config locations on Windows.
 # Usage:  powershell -ExecutionPolicy Bypass -File link.ps1
 # Note:   Requires Developer Mode enabled or Administrator privileges.
+#         既存の実体ファイル/ディレクトリは `リンク先.bak-<タイムスタンプ>` に退避してから置き換える。
 
 $repo = $PSScriptRoot
 $config = Join-Path $env:USERPROFILE ".config"
@@ -10,8 +11,30 @@ function New-Link {
         [string]$Link,
         [string]$Target
     )
-    New-Item -ItemType SymbolicLink -Force -Path $Link -Target $Target | Out-Null
-    Write-Host "linked: $Link -> $Target" -ForegroundColor Green
+
+    $item = Get-Item -Path $Link -Force -ErrorAction SilentlyContinue
+    if ($null -ne $item) {
+        if ($item.LinkType) {
+            # 既存の symlink/junction は張り直す（リンク自体だけ削除し、中身には触れない）
+            if ($item.PSIsContainer) {
+                [System.IO.Directory]::Delete($Link, $false)
+            } else {
+                [System.IO.File]::Delete($Link)
+            }
+        } else {
+            # 実体ファイル/ディレクトリはバックアップに退避してから置き換える
+            $backup = "$Link.bak-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+            Rename-Item -Path $Link -Destination $backup
+            Write-Host "backed up: $Link -> $backup" -ForegroundColor Yellow
+        }
+    }
+
+    try {
+        New-Item -ItemType SymbolicLink -Force -Path $Link -Target $Target | Out-Null
+        Write-Host "linked: $Link -> $Target" -ForegroundColor Green
+    } catch {
+        Write-Host "failed: $Link -> $Target ($($_.Exception.Message))" -ForegroundColor Red
+    }
 }
 
 # komorebi
