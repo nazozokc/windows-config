@@ -24,7 +24,7 @@ function New-Link {
         } else {
             # 実体ファイル/ディレクトリはバックアップに退避してから置き換える
             $backup = "$Link.bak-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-            Rename-Item -Path $Link -Destination $backup
+            Move-Item -Path $Link -Destination $backup
             Write-Host "backed up: $Link -> $backup" -ForegroundColor Yellow
         }
     }
